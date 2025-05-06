@@ -1,0 +1,234 @@
+use crate::tokens::{Token, LexicalError};
+use crate::ast;
+
+grammar;
+
+extern {
+  type Location = usize;
+  type Error = LexicalError;
+
+  enum Token {
+    "program" => Token::KeywordProgram,
+    "main" => Token::KeywordMain,
+    "print" => Token::KeywordPrint,
+    "if" => Token::KeywordIf,
+    "else" => Token::KeywordElse,
+    "while" => Token::KeywordWhile,
+    "do" => Token::KeywordDo,
+    "end" => Token::KeywordEnd,
+    "int" => Token::KeywordInt,
+    "float" => Token::KeywordFloat,
+    "var" => Token::KeywordVar,
+    "void" => Token::KeywordVoid,
+    r"[_a-zA-Z][_0-9a-zA-Z]*" => Token::Identifier(<String>),
+    r"[1-9][0-9]*" => Token::Integer(<i64>),
+    "(" => Token::LParen,
+    ")" => Token::RParen,
+    "{" => Token::LBrace,
+    "}" => Token::RBrace,
+    "=" => Token::AssignSimbol,
+    "!=" => Token::NotEqual,
+    ">" => Token::BigerThan,
+    "<" => Token::SmallerThan,
+    ";" => Token::Semicolon,
+    "," => Token::Comma,
+    "+" => Token::OperatorAdd,
+    "-" => Token::OperatorSub,
+    "*" => Token::OperatorMul,
+    "/" => Token::OperatorDiv,
+  }
+}
+
+pub Id: String = {
+    <s:Identifier> => s
+};
+
+pub Integer: i64 = {
+    <n:Token::Integer> => n
+};
+
+pub Program: Program = {
+    KeywordProgram <id:Id> Semicolon <vars:Vars>? <funcs:Funcs*> KeywordMain <body:Body> KeywordEnd => {
+        Program {
+            id: id,
+            vars: vars.unwrap_or(vec![]), 
+            funcs: funcs,
+            body: body,
+        }
+    }
+};
+
+pub Vars: Vec<(String, String)> = {
+    KeywordVar <vars:VarList> => vars,
+    () => vec![]
+};
+
+pub VarList: Vec<(String, String)> = {
+    <mut v:(<VarDecl> Semicolon)*> => v
+};
+
+pub VarDecl: Vec<(String, String)> = {
+    <ids:IdList> Colon <t:Type> => {
+        ids.into_iter().map(|id| (id, t.clone())).collect::<Vec<(String, String)>>()
+    }
+};
+
+pub Funcs: Vec<()> = {
+    () => vec![] 
+};
+
+pub Type: String = {
+    KeywordInt => "int".to_string(),
+    KeywordFloat => "float".to_string()
+};
+
+pub Body: Vec<Statement> = {
+    LBrace <stmts:Statement*> RBrace => stmts
+};
+
+pub Statement: Statement = {
+    <s:Assign> => s,
+    <s:Condition> => s,
+    <s:Cycle> => s,
+    <s:F_Call> => s,
+    <s:Print> => s
+};
+
+pub Assign: Statement = {
+    <id:Id> AssignSimbol <e:Expression> Semicolon => {
+        id: id,
+        value: Box::new(e),
+    }
+};
+
+pub Expression: Expression = {
+    
+    <exp:Exp> BigerThan <exp:Exp> => Expression,
+    <exp:Exp> SmallerThan <exp:Exp> => Expression,
+    <exp:Exp> NotEqual <exp:Exp> => Expression,
+
+    <e:Term> <ops:ExprOps*> => ops.into_iter().fold(e, |acc, (op, term)| {
+        Expression::BinaryOperation {
+            lhs: Box::new(acc),
+            operator: op,
+            rhs: Box::new(term),
+        }
+    })
+};
+
+pub ExprOps: (Operator, Expression) = {
+    OperatorAdd <t:Term> => (OperatorAdd, t),
+    OperatorSub <t:Term> => (OperatorSub, t)
+};
+
+pub Term: Expression = {
+    <f:Factor> <ops:TermOps*> => ops.into_iter().fold(f, |acc, (op, factor)| {
+        Expression::BinaryOperation {
+            lhs: Box::new(acc),
+            operator: op,
+            rhs: Box::new(factor),
+        }
+    })
+};
+
+pub TermOps: (Operator, Expression) = {
+    OperatorMul <f:Factor> => (Operator::Mul, f),
+    OperatorDiv <f:Factor> => (Operator::Div, f)
+};
+
+pub Factor: Expression = {
+    LParen <e:Expression> RParen => e,
+    <n:Integer> => Expression::Integer(n),
+    <id:Id> => Expression::Variable(id)
+};
+
+pub Exp: Expression = {
+    Token::LParen <e:Expression> Token::RParen => e,
+    <n:Integer> => Expression::Integer(n),
+    <id:Id> => Expression::Variable(id)
+};
+
+
+
+
+pub IdList: Vec<String> = {
+    <first:Id> <rest:CommaIds*> => {
+        let mut ids = vec![first];
+        for (_, id) in rest {
+            ids.push(id);
+        }
+        ids
+    }
+};
+
+pub CommaIds: (Token, String) = {
+    Comma <id:Id> => (Comma, id)
+};
+
+pub Print: Statement = {
+    Token::KeywordPrint Token::LParen <e:Expression> Token::RParen Token::Semicolon => Statement::Print {
+        value: Box::new(e),
+    }
+     "cte_string" aún porque no está en los tokens actuales
+};
+
+pub Condition: Statement = {
+    Token::KeywordIf Token::LParen <cond:Expression> Token::RParen <then:Body> Token::KeywordElse <else_:Body> Token::Semicolon => Statement::Condition {
+        condition: Box::new(cond),
+        then_branch: then,
+        else_branch: else_,
+    }
+};
+
+pub Cycle: Statement = {
+    Token::KeywordWhile Token::LParen <cond:Expression> Token::RParen Token::KeywordDo <body:Body> Token::Semicolon => Statement::Cycle {
+        condition: Box::new(cond),
+        body: body,
+    }
+};
+
+
+pub F_Call: Statement = {
+    <id:Id> Token::LParen <e:Expression> Token::RParen Token::Semicolon => Statement::F_Call {
+        id: id,
+        args: vec![e],
+    }
+};
+pub BinOp: Operator = {
+    Token::OperatorAdd => Operator::Add,
+    Token::OperatorSub => Operator::Sub,
+    Token::OperatorMul => Operator::Mul,
+    Token::OperatorDiv => Operator::Div
+};
+
+pub Exp: Expression = {
+    LParen <e:Expression> RParen => e,
+    <n:Integer> => Expression::Integer(n),
+    <id:Id> => Expression::Variable(id)
+};
+
+pub ExprOps: (Operator, Expression) = {
+    Token::OperatorAdd <t:Term> => (Operator::Add, t),
+    Token::OperatorSub <t:Term> => (Operator::Sub, t)
+};
+
+pub Term: Expression = {
+    <f:Factor> <ops:TermOps*> => ops.into_iter().fold(f, |acc, (op, factor)| {
+        Expression::BinaryOperation {
+            lhs: Box::new(acc),
+            operator: op,
+            rhs: Box::new(factor),
+        }
+    })
+};
+
+pub TermOps: (Operator, Expression) = {
+    Token::OperatorMul <f:Factor> => (Operator::Mul, f),
+    Token::OperatorDiv <f:Factor> => (Operator::Div, f)
+};
+
+pub Factor: Expression = {
+    Token::LParen <e:Expression> Token::RParen => e,
+    <n:Integer> => Expression::Integer(n),
+    <id:Id> => Expression::Variable(id)
+};
