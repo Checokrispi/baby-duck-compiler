@@ -17,11 +17,15 @@ extern {
     "do" => Token::KeywordDo,
     "end" => Token::KeywordEnd,
     "int" => Token::KeywordInt,
+    "cte_int" => Token::CteInt,
     "float" => Token::KeywordFloat,
+    "cte_float" => Token::CteFloat,
+    "cte.string" => Token::CteString,
     "var" => Token::KeywordVar,
     "void" => Token::KeywordVoid,
-    r"[_a-zA-Z][_0-9a-zA-Z]*" => Token::Identifier(<String>),
-    r"[1-9][0-9]*" => Token::Integer(<i64>),
+    "id" => Token::Identifier(<String>),
+    "integer" => Token::Integer(<i64>),
+    "float" => Token::Float(<i64>),
     "(" => Token::LParen,
     ")" => Token::RParen,
     "{" => Token::LBrace,
@@ -40,50 +44,73 @@ extern {
 }
 
 pub Id: String = {
-    <s:Identifier> => s
+    <s:"id"> => s
 };
 
 pub Integer: i64 = {
-    <n:Token::Integer> => n
+    <n:"integer"> => n
 };
 
 pub Program: Program = {
-    KeywordProgram <id:Id> Semicolon <vars:Vars>? <funcs:Funcs*> KeywordMain <body:Body> KeywordEnd => {
-        Program {
-            id: id,
-            vars: vars.unwrap_or(vec![]), 
-            funcs: funcs,
-            body: body,
-        }
+    "program" <id:Id> ";" <vars:VarsOpt> <funcs:Funcs> "main" <body:Body> "end" => Program {
+        id: id,
+        vars: vars.unwrap_or(vec![]),
+        funcs: funcs,
+        body: body,
     }
 };
 
+pub VarsOpt: Option<Vec<(String, String)>> = {
+    <vars:Vars> => Some(vars),
+    () => None
+};
+
+pub Funcs: Vec<Function> = {
+    <funcs:(<Func> ";")*> => funcs
+};
+
+pub Func: Function = {
+    "void" <name:Id> "(" <params:IdLoop> ")" <body:Body> => Function {
+        id: name,
+        params: params,
+        vars: vec![],  
+        body: body,
+    },
+    "void" <name:Id> "(" <params:IdLoop> ")" "var" <vars:VarList> <body:Body> => Function {
+        id: name,
+        params: params,
+        vars: vars,
+        body: body,
+    },
+};
+
 pub Vars: Vec<(String, String)> = {
-    KeywordVar <vars:VarList> => vars,
+    "var" <vars:VarList> => vars,
     () => vec![]
 };
 
 pub VarList: Vec<(String, String)> = {
-    <mut v:(<VarDecl> Semicolon)*> => v
+    <mut v:(<VarDecl> ";")*> => v
 };
 
 pub VarDecl: Vec<(String, String)> = {
-    <ids:IdList> Colon <t:Type> => {
+    <ids:IdList> <t:Type> => {
         ids.into_iter().map(|id| (id, t.clone())).collect::<Vec<(String, String)>>()
     }
 };
 
-pub Funcs: Vec<()> = {
-    () => vec![] 
-};
+pub IdList: Vec<Id> = {
+  <ids:(<Id> ",")*> => ids
+}
 
 pub Type: String = {
-    KeywordInt => "int".to_string(),
-    KeywordFloat => "float".to_string()
+    "int" => "int".to_string(),
+    "float" => "float".to_string(),
+    "void" => "void".to_string()
 };
 
 pub Body: Vec<Statement> = {
-    LBrace <stmts:Statement*> RBrace => stmts
+    "{" <stmts:Statement*> "}" => stmts
 };
 
 pub Statement: Statement = {
@@ -95,140 +122,210 @@ pub Statement: Statement = {
 };
 
 pub Assign: Statement = {
-    <id:Id> AssignSimbol <e:Expression> Semicolon => {
-        id: id,
-        value: Box::new(e),
+    <id:Id> "=" <e:Expression> ";" => {
+      id: id,
+      value: Box::new(e),
     }
-};
-
-pub Expression: Expression = {
-    
-    <exp:Exp> BigerThan <exp:Exp> => Expression,
-    <exp:Exp> SmallerThan <exp:Exp> => Expression,
-    <exp:Exp> NotEqual <exp:Exp> => Expression,
-
-    <e:Term> <ops:ExprOps*> => ops.into_iter().fold(e, |acc, (op, term)| {
-        Expression::BinaryOperation {
-            lhs: Box::new(acc),
-            operator: op,
-            rhs: Box::new(term),
-        }
-    })
-};
-
-pub ExprOps: (Operator, Expression) = {
-    OperatorAdd <t:Term> => (OperatorAdd, t),
-    OperatorSub <t:Term> => (OperatorSub, t)
-};
-
-pub Term: Expression = {
-    <f:Factor> <ops:TermOps*> => ops.into_iter().fold(f, |acc, (op, factor)| {
-        Expression::BinaryOperation {
-            lhs: Box::new(acc),
-            operator: op,
-            rhs: Box::new(factor),
-        }
-    })
-};
-
-pub TermOps: (Operator, Expression) = {
-    OperatorMul <f:Factor> => (Operator::Mul, f),
-    OperatorDiv <f:Factor> => (Operator::Div, f)
-};
-
-pub Factor: Expression = {
-    LParen <e:Expression> RParen => e,
-    <n:Integer> => Expression::Integer(n),
-    <id:Id> => Expression::Variable(id)
-};
-
-pub Exp: Expression = {
-    Token::LParen <e:Expression> Token::RParen => e,
-    <n:Integer> => Expression::Integer(n),
-    <id:Id> => Expression::Variable(id)
-};
-
-
-
-
-pub IdList: Vec<String> = {
-    <first:Id> <rest:CommaIds*> => {
-        let mut ids = vec![first];
-        for (_, id) in rest {
-            ids.push(id);
-        }
-        ids
-    }
-};
-
-pub CommaIds: (Token, String) = {
-    Comma <id:Id> => (Comma, id)
-};
-
-pub Print: Statement = {
-    Token::KeywordPrint Token::LParen <e:Expression> Token::RParen Token::Semicolon => Statement::Print {
-        value: Box::new(e),
-    }
-     "cte_string" aún porque no está en los tokens actuales
 };
 
 pub Condition: Statement = {
-    Token::KeywordIf Token::LParen <cond:Expression> Token::RParen <then:Body> Token::KeywordElse <else_:Body> Token::Semicolon => Statement::Condition {
-        condition: Box::new(cond),
-        then_branch: then,
-        else_branch: else_,
+    "if" "(" <e:Expression> ")" <then_body:Body> <else_part:ElsePart> ";" => match else_part {
+        Some(else_body) => Statement::Condition {
+            condition: Box::new(e),
+            then_branch: then_body,
+            else_branch: else_body,
+        },
+        None => Statement::Condition {
+            condition: Box::new(e),
+            then_branch: then_body,
+            else_branch: vec![],
+        }
     }
+};
+
+pub ElsePart: Option<Vec<Statement>> = {
+    "else" <b:Body> => Some(b),
+    () => None
 };
 
 pub Cycle: Statement = {
-    Token::KeywordWhile Token::LParen <cond:Expression> Token::RParen Token::KeywordDo <body:Body> Token::Semicolon => Statement::Cycle {
-        condition: Box::new(cond),
-        body: body,
-    }
+  "while" "(" <e:Expression> ")" "do" <b:Body> ";" => Statement::Cycle {
+      condition: Box::new(e),
+      body: b,
+  }
 };
-
 
 pub F_Call: Statement = {
-    <id:Id> Token::LParen <e:Expression> Token::RParen Token::Semicolon => Statement::F_Call {
+    <id:Id> "(" <args:ExpFCallLoop> ")" ";" => Statement::F_Call {
         id: id,
-        args: vec![e],
+        args: args,
     }
 };
-pub BinOp: Operator = {
-    Token::OperatorAdd => Operator::Add,
-    Token::OperatorSub => Operator::Sub,
-    Token::OperatorMul => Operator::Mul,
-    Token::OperatorDiv => Operator::Div
+
+pub ExpFCallLoop: Vec<Expression> = {
+    () => vec![],
+    <first:Expression> <rest:ExpFCallLoopRest*> => { 
+        let mut args = vec![first];
+        args.extend(rest);
+        args
+    }
+};
+
+pub ExpFCallLoopRest: Expression = {
+    "," <e:Expression> => e
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pub Print: Statement = {
+    "print" "(" <args:ExpStrLoop> ")" ";" => Statement::Print {
+        values: args,
+    }
+};
+
+pub ExpStrLoop: Vec<Expression> = {
+    <first:Expression> <rest:CteStringList?> => {
+        let mut args = vec![first];
+        args.extend(rest.into_iter().flatten());
+        args
+    }
+};
+
+pub CteStringList: Vec<Expression> = {
+    "," <s:"cte.string"> => vec![Expression::String(s)],
+    "," <s:"cte.string"> <rest:CteStringList> => {
+        let mut args = vec![Expression::String(s)];
+        args.extend(rest);
+        args
+    }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+pub Expression: Expression = {
+    <left:Exp> <comp:CompOp?> => match comp {
+        Some((op, right)) => Expression::BinaryOperation {
+            lhs: Box::new(left),
+            operator: op,
+            rhs: Box::new(right),
+        },
+        None => left,
+    }
+};
+
+pub CompOp: (Operator, Expression) = {
+    ">" <right:Exp> => (Operator::Gt, right),
+    "<" <right:Exp> => (Operator::Lt, right),
+    "!=" <right:Exp> => (Operator::Ne, right)
 };
 
 pub Exp: Expression = {
-    LParen <e:Expression> RParen => e,
-    <n:Integer> => Expression::Integer(n),
-    <id:Id> => Expression::Variable(id)
-};
-
-pub ExprOps: (Operator, Expression) = {
-    Token::OperatorAdd <t:Term> => (Operator::Add, t),
-    Token::OperatorSub <t:Term> => (Operator::Sub, t)
-};
-
-pub Term: Expression = {
-    <f:Factor> <ops:TermOps*> => ops.into_iter().fold(f, |acc, (op, factor)| {
+    <term:Term> <loop:ExpLoop> => loop.into_iter().fold(term, |acc, (op, next)| {
         Expression::BinaryOperation {
             lhs: Box::new(acc),
             operator: op,
-            rhs: Box::new(factor),
+            rhs: Box::new(next),
         }
     })
 };
 
-pub TermOps: (Operator, Expression) = {
-    Token::OperatorMul <f:Factor> => (Operator::Mul, f),
-    Token::OperatorDiv <f:Factor> => (Operator::Div, f)
+pub ExpLoop: Vec<(Operator, Expression)> = {
+    <ops:(<ExpLoopOp> <Term>)*> => ops.into_iter().collect()
+};
+
+pub ExpLoopOp: (Operator, Expression) = {
+    "+" <t:Term> => (Operator::Add, t),
+    "-" <t:Term> => (Operator::Sub, t)
+};
+
+pub Term: Expression = {
+    <factor:Factor> <loop:TermLoop> => loop.into_iter().fold(factor, |acc, (op, next)| {
+        Expression::BinaryOperation {
+            lhs: Box::new(acc),
+            operator: op,
+            rhs: Box::new(next),
+        }
+    })
+};
+
+pub TermLoop: Vec<(Operator, Expression)> = {
+    <ops:(<TermLoopOp> <Factor>)*> => ops.into_iter().collect()
+};
+
+pub TermLoopOp: (Operator, Expression) = {
+    "*" <f:Factor> => (Operator::Mul, f),
+    "/" <f:Factor> => (Operator::Div, f)
 };
 
 pub Factor: Expression = {
-    Token::LParen <e:Expression> Token::RParen => e,
-    <n:Integer> => Expression::Integer(n),
-    <id:Id> => Expression::Variable(id)
+    "(" <e:Expression> ")" => e,
+    <ops:Ops> <idcte:IdCte> => match ops {
+        Some(op) => Expression::BinaryOperation {
+            lhs: Box::new(match op {
+                Operator::Add => Expression::Integer(0),
+                Operator::Sub => Expression::Integer(0),
+            }),
+            operator: op,
+            rhs: Box::new(idcte),
+        },
+        None => idcte,
+    }
 };
+
+pub Ops: Option<Operator> = {
+    "+" => Some(Operator::Add),
+    "-" => Some(Operator::Sub),
+    () => None
+};
+
+pub IdCte: Expression = {
+    <id:Id> => Expression::Variable(id),
+    <n:Cte> => Expression::Integer(n)
+};
+
+pub Cte: i64 = {
+    <n:Integer> => n
+};
+
+pub IdLoop: Vec<(String, String)> = {
+    () => vec![],
+    <first:Id> "," <t:Type> <rest:IdLoopRest*> => {
+        let mut params = vec![(first, t.clone())];
+        params.extend(rest.into_iter().map(|(id, ty)| (id, ty.unwrap_or(t.clone()))));
+        params
+    }
+};
+
+pub IdLoopRest: (String, Option<String>) = {
+    "," <id:Id> "," <t:Type> => (id, Some(t)),
+    "," <id:Id> => (id, None)
+};
+
+pub VarsDesBody: (Vec<(String, String)>, Vec<Statement>) = {
+    <vars:Vars> <body:Body> => (vars, body),
+    () => (vec![], vec![])
+};
+

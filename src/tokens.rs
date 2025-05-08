@@ -34,15 +34,23 @@ pub enum Token {
     KeywordEnd,
     #[token("int")]
     KeywordInt,
+    #[token("cte_int")]
+    CteInt,
     #[token("float")]
     KeywordFloat,
+    #[token("cte_float")]
+    CteFloat,
     #[token("var")]
     KeywordVar,
+    #[regex("[\"][_0-9a-zA-Z]*[\"]")]
+    CteString,
     #[token("void")]
     KeywordVoid,
 
     #[regex("[_a-zA-Z][_0-9a-zA-Z]*", |lex| lex.slice().to_string())]
     Identifier(String),
+    #[regex("[0-9]+[.][1-9][0-9]*", |lex| lex.slice().parse())]
+    Float(f64),
     #[regex("[1-9][0-9]*", |lex| lex.slice().parse())]
     Integer(i64),
     #[token("(")]
