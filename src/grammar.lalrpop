@@ -5,7 +5,7 @@ grammar;
 
 extern {
   type Location = usize;
-  type Error = LexicalError;
+  type Error = lexer::LexicalError;
 
   enum Token {
     "program" => Token::KeywordProgram,
@@ -28,9 +28,12 @@ extern {
     "float" => Token::Float(<i64>),
     "(" => Token::LParen,
     ")" => Token::RParen,
+    "[" => Token::LBraket,
+    "]" => Token::RBraket,
     "{" => Token::LBrace,
     "}" => Token::RBrace,
     "=" => Token::AssignSimbol,
+    ":" => Token::TwoPoints,
     "!=" => Token::NotEqual,
     ">" => Token::BigerThan,
     "<" => Token::SmallerThan,
@@ -43,75 +46,136 @@ extern {
   }
 }
 
-pub Id: String = {
+#[inline]
+Id: String = {
     <s:"id"> => s
 };
 
-pub Integer: i64 = {
+#[inline]
+Integer: i64 = {
     <n:"integer"> => n
 };
 
-pub Program: Program = {
-    "program" <id:Id> ";" <vars:VarsOpt> <funcs:Funcs> "main" <body:Body> "end" => Program {
-        id: id,
-        vars: vars.unwrap_or(vec![]),
-        funcs: funcs,
-        body: body,
-    }
-};
-
-pub VarsOpt: Option<Vec<(String, String)>> = {
-    <vars:Vars> => Some(vars),
-    () => None
-};
-
-pub Funcs: Vec<Function> = {
-    <funcs:(<Func> ";")*> => funcs
-};
-
-pub Func: Function = {
-    "void" <name:Id> "(" <params:IdLoop> ")" <body:Body> => Function {
-        id: name,
-        params: params,
-        vars: vec![],  
-        body: body,
-    },
-    "void" <name:Id> "(" <params:IdLoop> ")" "var" <vars:VarList> <body:Body> => Function {
-        id: name,
-        params: params,
-        vars: vars,
-        body: body,
-    },
-};
-
-pub Vars: Vec<(String, String)> = {
-    "var" <vars:VarList> => vars,
-    () => vec![]
-};
-
-pub VarList: Vec<(String, String)> = {
-    <mut v:(<VarDecl> ";")*> => v
-};
-
-pub VarDecl: Vec<(String, String)> = {
-    <ids:IdList> <t:Type> => {
-        ids.into_iter().map(|id| (id, t.clone())).collect::<Vec<(String, String)>>()
-    }
-};
-
-pub IdList: Vec<Id> = {
-  <ids:(<Id> ",")*> => ids
-}
-
-pub Type: String = {
+#[inline]
+Type: String = {
     "int" => "int".to_string(),
     "float" => "float".to_string(),
-    "void" => "void".to_string()
 };
 
+#[inline]
+Cte: i64 = {
+    <n:Integer> => n
+};
+
+#[inline]
+IdCte: Expression = {
+    <id:Id> => Expression::Variable(id),
+    <n:Cte> => Expression::Integer(n)
+};
+
+#[inline]
+AddSubOp: (BinaryOperator, Expression) = {
+    "+" <t:Term> => (BinaryOperator::Add, t),
+    "-" <t:Term> => (BinaryOperator::Sub, t)
+};
+
+#[inline]
+TermLoop: (Operator, Expression) = {
+    "*" <f:Factor> => (Operator::Mul, f),
+    "/" <f:Factor> => (Operator::Div, f)
+};
+
+#[inline]
+CompOp: (BinaryOperator, Expression) = {
+    ">" <right:Exp> => (BinaryOperator::GreaterThan, right),
+    "<" <right:Exp> => (BinaryOperator::LessThan, right),
+    "!=" <right:Exp> => (BinaryOperator::NotEqual, right)
+};
+
+// ---------------------------------------------------- Program -------------------------------------------------------
+pub Program: Program = {
+  "program" <fid:Id> ";" <vars:Vars?> <funcs:Function*> "main" <mainb:Body> "end" => Program {
+      id: fid,
+      vars: vars.unwrap_or(vec![]),
+      funcs: funcs,
+      body: mainb,
+  }
+};
+// ---------------------------------------------------------------------------------------------------------------------
+
+// ---------------------------------------------------- Vars -------------------------------------------------------
+#[inline]
+Vars: Vec<VarDecl> = {
+  <decls:VarDecl*> => decls
+};
+
+
+VarDecl: VarDecl = {
+    "var" <fisrt:Id> <tail:IdTail*> ":" <ty:Type> ";"=> VarDecl {
+        let mut names = vec![first];
+        names.extend(tail);
+        VarDecl {
+            name,
+            var_type: ty,
+        }
+    }
+};
+
+IdTail: Vec<String> = {
+    "," <name:Id> => name
+}
+// ----------------------------------------------------------------------------------------------------------------------
+
+// ---------------------------------------------------- Functions -------------------------------------------------------
+Function: Func = {
+    "void" <id:Id> "(" <params:ParamList> ")" "[" <vars:VarDecl?> <body:Body> "]" ";" => Func {
+        name: id,
+        params,
+        vars,
+        body,
+    }
+};
+
+//regla para la lista de parámetros
+ParamList: Vec<Param> = {
+    => vec![], //lista vacia de paramteros
+    <first:Param> <tail:ParamTail*> => { //first es el primer parametro seguido de , Param por si hay mas de uno
+        let mut list = vec![first]; //lista mutable
+        list.extend(tail.into_iter().map(|(_, p)| p)); //junatmos primer y segundo valor
+        list
+    }
+};
+
+ParamTail: Vec<Param> = {
+    => vec![], //lista vacia de paramteros
+    "," <param: Param> => param 
+}
+
+//definicion de Param
+Param: Param = {
+    <name:Id> ":" <ty:Type> => Param {
+        name,
+        param_type: ty,
+    }
+};
+
+//------------------------------------------------------------------------------------------------------------------------------------
+
+//---------------------------------------------- Body -----------------------------------------------
+
+// Cuerpo ficticio (puedes hacer algo más complejo)
 pub Body: Vec<Statement> = {
     "{" <stmts:Statement*> "}" => stmts
 };
+//-------------------------------------------------------------------------------------------------------------------------------
+
+
+// ----------------------------------------------------- Statement ------------------------------------------------------
+// ----------------------------------------------------- |_ Assign ------------------------------------------------------
+// ----------------------------------------------------- |_ Condition ---------------------------------------------------
+// ----------------------------------------------------- |_ Cycle -------------------------------------------------------
+// ----------------------------------------------------- |_ F_Call ------------------------------------------------------
+// ----------------------------------------------------- |_ Print -------------------------------------------------------
 
 pub Statement: Statement = {
     <s:Assign> => s,
@@ -121,33 +185,30 @@ pub Statement: Statement = {
     <s:Print> => s
 };
 
+// ---------------------------- Assign
 pub Assign: Statement = {
-    <id:Id> "=" <e:Expression> ";" => {
+    <id:Id> "=" <e:Expression> ";" => Statement::Variable {
       id: id,
       value: Box::new(e),
     }
 };
 
+// ---------------------------- Condition
 pub Condition: Statement = {
-    "if" "(" <e:Expression> ")" <then_body:Body> <else_part:ElsePart> ";" => match else_part {
-        Some(else_body) => Statement::Condition {
-            condition: Box::new(e),
-            then_branch: then_body,
-            else_branch: else_body,
-        },
-        None => Statement::Condition {
-            condition: Box::new(e),
-            then_branch: then_body,
-            else_branch: vec![],
-        }
+    "if" "(" <e:Expression> ")" <then_body:Body> <else_body:ElsePart> ";" => Statement::Condition {
+        condition: Box::new(e),
+        then_branch: then_body,
+        else_branch: else_body,
     }
 };
 
-pub ElsePart: Option<Vec<Statement>> = {
-    "else" <b:Body> => Some(b),
-    () => None
+pub ElsePart: Vec<Statement> = {
+    "else" <b:Body> => b,
+    () => vec![] 
 };
 
+
+// ---------------------------- Cycle
 pub Cycle: Statement = {
   "while" "(" <e:Expression> ")" "do" <b:Body> ";" => Statement::Cycle {
       condition: Box::new(e),
@@ -155,43 +216,23 @@ pub Cycle: Statement = {
   }
 };
 
+// ---------------------------- F_Call
 pub F_Call: Statement = {
-    <id:Id> "(" <args:ExpFCallLoop> ")" ";" => Statement::F_Call {
-        id: id,
+    <firstid:Id> "(" <firstarg:Expression> <args:ExpFCallLoop*> ")" ";" => Statement::FCall {
+        id: firstid,
         args: args,
     }
 };
 
 pub ExpFCallLoop: Vec<Expression> = {
-    () => vec![],
-    <first:Expression> <rest:ExpFCallLoopRest*> => { 
-        let mut args = vec![first];
-        args.extend(rest);
-        args
-    }
+    "," <expr:Expression> => expr
 };
 
-pub ExpFCallLoopRest: Expression = {
-    "," <e:Expression> => e
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-pub Print: Statement = {
-    "print" "(" <args:ExpStrLoop> ")" ";" => Statement::Print {
-        values: args,
-    }
+// ---------------------------- Print
+Print: Statement = {
+    "print" <val:Expression> ";" => Statement::Print {
+        value: Box::new(val),
+    },
 };
 
 pub ExpStrLoop: Vec<Expression> = {
@@ -211,121 +252,64 @@ pub CteStringList: Vec<Expression> = {
     }
 };
 
+// -------------------------------------------------------------------------------------------------------------------
 
+//---------------------------------------------------------------------------------------
 
-
-
-
-
-
-
-
-
-
-
-
-
+// ---------------------------------------------- Expression ---------------------------------------------------
 pub Expression: Expression = {
-    <left:Exp> <comp:CompOp?> => match comp {
-        Some((op, right)) => Expression::BinaryOperation {
-            lhs: Box::new(left),
-            operator: op,
-            rhs: Box::new(right),
-        },
-        None => left,
-    }
+    <first:Exp> <op:CompOp> <last:Exp> => Expression::Binary {
+        left: Box::new(first),
+        operator: op,
+        right: Box::new(last),
+    },
 };
 
-pub CompOp: (Operator, Expression) = {
-    ">" <right:Exp> => (Operator::Gt, right),
-    "<" <right:Exp> => (Operator::Lt, right),
-    "!=" <right:Exp> => (Operator::Ne, right)
-};
-
+//-------------------------------------------------- Exp --------------------------------------------------------
 pub Exp: Expression = {
-    <term:Term> <loop:ExpLoop> => loop.into_iter().fold(term, |acc, (op, next)| {
-        Expression::BinaryOperation {
-            lhs: Box::new(acc),
-            operator: op,
-            rhs: Box::new(next),
-        }
-    })
+    <first:Term> <rest:AddSubOp*> => {
+        rest.into_iter().fold(first, |acc, (op, rhs)| {
+            Expression::Binary {
+                left: Box::new(acc),
+                operator: op,
+                right: Box::new(rhs),
+            }
+        })
+    }
 };
 
-pub ExpLoop: Vec<(Operator, Expression)> = {
-    <ops:(<ExpLoopOp> <Term>)*> => ops.into_iter().collect()
-};
-
-pub ExpLoopOp: (Operator, Expression) = {
-    "+" <t:Term> => (Operator::Add, t),
-    "-" <t:Term> => (Operator::Sub, t)
-};
-
+//---------------------------------------------------- Term -------------------------------------------------------
 pub Term: Expression = {
-    <factor:Factor> <loop:TermLoop> => loop.into_iter().fold(factor, |acc, (op, next)| {
-        Expression::BinaryOperation {
-            lhs: Box::new(acc),
-            operator: op,
-            rhs: Box::new(next),
-        }
-    })
+    <factor:Factor> <rest:TermLoop*> => {
+        rest.into_iter().fold(factor, |acc, (op, next)| {
+            Expression::Binary {
+                left: Box::new(acc),
+                operator: op,
+                right: Box::new(next),
+            }
+        })
+    }
 };
 
-pub TermLoop: Vec<(Operator, Expression)> = {
-    <ops:(<TermLoopOp> <Factor>)*> => ops.into_iter().collect()
-};
-
-pub TermLoopOp: (Operator, Expression) = {
-    "*" <f:Factor> => (Operator::Mul, f),
-    "/" <f:Factor> => (Operator::Div, f)
-};
-
-pub Factor: Expression = {
+//--------------------------------------------------- Factor ------------------------------------------------------
+Factor: Expression = {
+    //(EXPRESION)
     "(" <e:Expression> ")" => e,
-    <ops:Ops> <idcte:IdCte> => match ops {
-        Some(op) => Expression::BinaryOperation {
-            lhs: Box::new(match op {
-                Operator::Add => Expression::Integer(0),
-                Operator::Sub => Expression::Integer(0),
-            }),
-            operator: op,
-            rhs: Box::new(idcte),
-        },
-        None => idcte,
-    }
-};
 
-pub Ops: Option<Operator> = {
-    "+" => Some(Operator::Add),
-    "-" => Some(Operator::Sub),
-    () => None
-};
+    //-cte o -id  → se convierte en 0 - expr
+    "-" <e:IdCte> => Expression::Binary {
+        left: Box::new(Expression::Integer(0)),
+        operator: BinaryOperator::Sub,
+        right: Box::new(e),
+    },
 
-pub IdCte: Expression = {
-    <id:Id> => Expression::Variable(id),
-    <n:Cte> => Expression::Integer(n)
-};
+    // Caso: +cte o +id  → se convierte en 0 + expr
+    "+" <e:IdCte> => Expression::Binary {
+        left: Box::new(Expression::Integer(0)),
+        operator: BinaryOperator::Add,
+        right: Box::new(e),
+    },
 
-pub Cte: i64 = {
-    <n:Integer> => n
+    // Caso: id o cte directamente
+    <e:IdCte> => e,
 };
-
-pub IdLoop: Vec<(String, String)> = {
-    () => vec![],
-    <first:Id> "," <t:Type> <rest:IdLoopRest*> => {
-        let mut params = vec![(first, t.clone())];
-        params.extend(rest.into_iter().map(|(id, ty)| (id, ty.unwrap_or(t.clone()))));
-        params
-    }
-};
-
-pub IdLoopRest: (String, Option<String>) = {
-    "," <id:Id> "," <t:Type> => (id, Some(t)),
-    "," <id:Id> => (id, None)
-};
-
-pub VarsDesBody: (Vec<(String, String)>, Vec<Statement>) = {
-    <vars:Vars> <body:Body> => (vars, body),
-    () => (vec![], vec![])
-};
-

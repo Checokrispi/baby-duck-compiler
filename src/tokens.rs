@@ -57,6 +57,10 @@ pub enum Token {
     LParen,
     #[token(")")]
     RParen,
+    #[token("[")]
+    LBraket,
+    #[token("]")]
+    RBraket,
     #[token("=")]
     AssignSimbol,
     #[token("!=")]
@@ -67,6 +71,8 @@ pub enum Token {
     SmallerThan,
     #[token(";")]
     Semicolon,
+    #[token(":")]
+    TwoPoints,
     #[token(",")]
     Comma,
 
