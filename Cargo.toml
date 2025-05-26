@@ -4,10 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [build-dependencies]
-lalrpop = "0.22.1"
+lalrpop = "0.20"
 
 [dependencies]
-lalrpop-util = { version = "0.22.1", features = [
-    "unicode",
-] }
+lalrpop-util = { version = "0.22.1", features = ["unicode",] }
 logos = "0.15.0"

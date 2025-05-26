@@ -49,9 +49,9 @@ pub enum Token {
 
     #[regex("[_a-zA-Z][_0-9a-zA-Z]*", |lex| lex.slice().to_string())]
     Identifier(String),
-    #[regex("[0-9]+[.][1-9][0-9]*", |lex| lex.slice().parse())]
+    #[regex("[0-9]+[.][0-9]+", |lex| lex.slice().parse())]
     Float(f64),
-    #[regex("[1-9][0-9]*", |lex| lex.slice().parse())]
+    #[regex("[0-9]+", |lex| lex.slice().parse())]
     Integer(i64),
     #[token("(")]
     LParen,
