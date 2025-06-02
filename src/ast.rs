@@ -35,6 +35,7 @@ pub enum Expression {
     Integer(i64),
     Float(f64),
     Variable(String),
+    Bool(bool),
     BinaryOperation {
         lhs: Box<Expression>,
         operator: Operator,
@@ -42,12 +43,13 @@ pub enum Expression {
     },
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Operator {
     Add,
     Sub,
     Mul,
     Div,
+    NotEqual,
     GreaterThan,
     LessThan,
 }

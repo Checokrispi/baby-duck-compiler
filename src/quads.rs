@@ -1,9 +1,9 @@
 #[derive(Debug)]
 struct Quad {
-    operator: String, // Ejemplo: "+", "-", ">", "=", "print"
-    arg1: Option<String>, // Operando 1 (o None para operadores unarios)
-    arg2: Option<String>, // Operando 2 (o None para operadores unarios)
-    result: String,       // Temporal o variable donde se guarda el resultado
+    operator: String, 
+    arg1: Option<String>, 
+    arg2: Option<String>, 
+    result: String,       
 }
 
 fn generate_quads(stmt: &Statement, quads: &mut Vec<Quad>, temp_counter: &mut i32) -> String {
@@ -18,7 +18,6 @@ fn generate_quads(stmt: &Statement, quads: &mut Vec<Quad>, temp_counter: &mut i3
             });
             id.clone()
         }
-        // Otros casos: Print, Condition, Cycle, FCall
         _ => unimplemented!(),
     }
 }

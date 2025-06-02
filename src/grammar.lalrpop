@@ -53,6 +53,9 @@ pub Program: ast::Program = {
   "program" <id:"id"> ";" <func:Funcs> "main" <body:Body> "end" => {
       ast::Program { id, vars: None, funcs: Some(func), body }
   },
+  "program" <id:"id"> ";" <var:Vars> "main" <body:Body> "end" => {
+      ast::Program { id, vars: Some(var), funcs: None, body }
+  },
   "program" <id:"id"> ";" "main" <body:Body> "end" => {
       ast::Program { id, vars: None, funcs: None, body }
   },
