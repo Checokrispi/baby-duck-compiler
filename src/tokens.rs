@@ -1,10 +1,12 @@
 use logos::Logos;
 use std::fmt; 
 use std::num::ParseIntError;
+use std::num::ParseFloatError;
 
 #[derive(Default, Debug, Clone, PartialEq)]
 pub enum LexicalError {
     InvalidInteger(ParseIntError),
+    InvalidFloat(ParseFloatError),
     #[default]
     InvalidToken,
 }
@@ -13,6 +15,12 @@ impl From<ParseIntError> for LexicalError {
         LexicalError::InvalidInteger(err)
     }
 }
+impl From<ParseFloatError> for LexicalError {
+    fn from(err: ParseFloatError) -> Self {
+        LexicalError::InvalidFloat(err)
+    }
+}
+
 #[derive(Logos, Clone, Debug, PartialEq)]
 #[logos(skip r"[ \t\n\f]+", skip r"#.*\n?", error = LexicalError)]
 pub enum Token {
@@ -32,12 +40,8 @@ pub enum Token {
     KeywordDo,
     #[token("end")]
     KeywordEnd,
-    #[token("int")]
-    KeywordInt,
     #[token("cte_int")]
     CteInt,
-    #[token("float")]
-    KeywordFloat,
     #[token("cte_float")]
     CteFloat,
     #[token("var")]
@@ -51,8 +55,9 @@ pub enum Token {
     Identifier(String),
     #[regex("[0-9]+[.][0-9]+", |lex| lex.slice().parse())]
     Float(f64),
-    #[regex("[0-9]+", |lex| lex.slice().parse())]
+    #[regex("[1-9][0-9]*", |lex| lex.slice().parse())]
     Integer(i64),
+
     #[token("(")]
     LParen,
     #[token(")")]
@@ -61,6 +66,10 @@ pub enum Token {
     LBraket,
     #[token("]")]
     RBraket,
+    #[token("{")]
+    LBrace,
+    #[token("}")]
+    RBrace,
     #[token("=")]
     AssignSimbol,
     #[token("!=")]

@@ -1,11 +1,12 @@
-use crate::tokens::{Token, LexicalError};
 use crate::ast;
+use crate::tokens::LexicalError;
+use crate::tokens::Token;
 
 grammar;
 
 extern {
   type Location = usize;
-  type Error = lexer::LexicalError;
+  type Error = LexicalError;
 
   enum Token {
     "program" => Token::KeywordProgram,
@@ -16,15 +17,13 @@ extern {
     "while" => Token::KeywordWhile,
     "do" => Token::KeywordDo,
     "end" => Token::KeywordEnd,
-    "int" => Token::KeywordInt,
     "cte_int" => Token::CteInt,
-    "float" => Token::KeywordFloat,
     "cte_float" => Token::CteFloat,
     "cte.string" => Token::CteString,
     "var" => Token::KeywordVar,
     "void" => Token::KeywordVoid,
     "id" => Token::Identifier(<String>),
-    "integer" => Token::Integer(<i64>),
+    "int" => Token::Integer(<i64>),
     "float" => Token::Float(<f64>),
     "(" => Token::LParen,
     ")" => Token::RParen,
@@ -46,310 +45,181 @@ extern {
   }
 }
 
-#[inline]
-Id: String = {
-    <s:"id"> => s
-};
+//Program
+pub Program: ast::Program = {
+  "program" <id:"id"> ";" <var:Vars> <func:Funcs> "main" <body:Body> "end" => {
+      ast::Program { id, vars: Some(var), funcs: Some(func), body }
+  },
+  "program" <id:"id"> ";" <func:Funcs> "main" <body:Body> "end" => {
+      ast::Program { id, vars: None, funcs: Some(func), body }
+  },
+  "program" <id:"id"> ";" "main" <body:Body> "end" => {
+      ast::Program { id, vars: None, funcs: None, body }
+  },
+}
 
-#[inline]
-Integer: i64 = {
-    <n:"integer"> => n
-};
+//Func
+pub Funcs: Vec<ast::Func> = {
+  "void" <func:Func*> => func,
+}
 
-#[inline]
-Float: f64 = {
-    <n:"float"> => n
-};
-
-#[inline]
-Type: String = {
-    "int" => "int".to_string(),
-    "float" => "float".to_string(),
-};
-
-#[inline]
-Cte: Expression = {
-    <n:"integer"> => Expression::Integer(n)
-};
-
-#[inline]
-CteFloat: Expression = {
-    <n:"float"> => Expression::Float(n)
-};
-
-
-#[inline]
-CompOp: BinaryOperator = {
-    ">" => BinaryOperator::GreaterThan,
-    "<" => BinaryOperator::LessThan,
-    "!=" => BinaryOperator::NotEqual,
-};
-// ---------------------------------------------------- Program -------------------------------------------------------
-
-pub Program: Program = {
-    "program" <fid:Id> ";" <decls:Declaration*> "main" <mainb:Body> "end" => Program {
-        id: fid,
-        declarations: decls,
-        body: mainb,
-    }
-};
-
-Declaration: Declaration = {
-    <var:VarDecl> => Declaration::Var(var),
-    <func:Function> => Declaration::Func(func),
-};
-
-// ---------------------------------------------------------------------------------------------------------------------
-
-// ---------------------------------------------------- Vars -------------------------------------------------------
-
-// Vars: Vec<VarDecl> = {
-//     <decls:VarDecl*> => decls,
-// };
-
-VarDecl: VarDecl = {
-    "var" <first:Id> <rest:("," <Id>)*> ":" <ty:Type> ";" => {
-        let mut names = vec![first];
-        names.extend(rest.into_iter().map(|(_, id)| id));
-        VarDecl { names, var_type: ty }
-    }
-};
-// ----------------------------------------------------------------------------------------------------------------------
-
-// ---------------------------------------------------- Functions -------------------------------------------------------
-// Function: Func = {
-//     "void" <id:Id> "(" <params:ParamList> ")" "[" <vars:VarDecl?> <body:Body> "]" ";" => Func {
-//         name: id,
-//         params,
-//         vars: vars.unwrap_or(vec![]),
-//         body,
-//     }
-// };
-
-Function: Func = {
-    "void" <id:Id> "(" <params:ParamList> ")" "[" <body:Body> "]" ";" => Func {
-        name: id,
-        params,
-        vars: vec![],
-        body,
-    },
-    "void" <id:Id> "(" <params:ParamList> ")" "[" <vars:VarDecl> <body:Body> "]" ";" => Func {
-        name: id,
-        params,
-        vars: vec![vars],
-        body,
-    }
-};
-
-// ParamList: Vec<Param> = {
-//     <p:Param> <rest:("," <Param>)*> => {
-//         let mut list = vec![p];
-//         list.extend(rest.into_iter().map(|(_, p)| p));
-//         list
-//     },
-//     => vec![],
-// };
-
-
-ParamList: Vec<Param> = {
-    <params:ParamListNonEmpty?> => params.unwrap_or(vec![]),
-};
-
-ParamListNonEmpty: Vec<Param> = {
-    <p:Param> => vec![p],
-    <p:Param> "," <rest:ParamListNonEmpty> => {
-        let mut list = vec![p];
-        list.extend(rest);
-        list
-    },
-};
-
-// ParamList: Vec<Param> = {
-//     => vec![], // Lista vacía
-//     <first:Param> <rest:("," <Param>)*> => {
-//         let mut params = vec![first];
-//         params.extend(rest.into_iter().map(|(_, p)| p));
-//         params
-//     }
-// };
-
-Param: Param = {
-    <name:Id> ":" <ty:Type> => Param {
-        name,
-        param_type: ty,
-    }
-};
-
-
-//------------------------------------------------------------------------------------------------------------------------------------
-
-//---------------------------------------------- Body -----------------------------------------------
-
-// Cuerpo ficticio (puedes hacer algo más complejo)
-pub Body: Vec<Statement> = {
-    "{" <stmts:Statement*> "}" => stmts
-};
-//-------------------------------------------------------------------------------------------------------------------------------
-
-
-// ----------------------------------------------------- Statement ------------------------------------------------------
-// ----------------------------------------------------- |_ Assign ------------------------------------------------------
-// ----------------------------------------------------- |_ Condition ---------------------------------------------------
-// ----------------------------------------------------- |_ Cycle -------------------------------------------------------
-// ----------------------------------------------------- |_ F_Call ------------------------------------------------------
-// ----------------------------------------------------- |_ Print -------------------------------------------------------
-
-pub Statement: Statement = {
-    <s:Assign> => s,
-    <s:Condition> => s,
-    <s:Cycle> => s,
-    <s:F_Call> => s,
-    <s:Print> => s
-};
-
-// ---------------------------- Assign
-pub Assign: Statement = {
-    <id:Id> "=" <e:Expression> ";" => Statement::Variable {
-      id: id,
-      value: Box::new(e),
-    }
-};
-
-// ---------------------------- Condition
-
-pub Condition: Statement = {
-    "if" "(" <e:Expression> ")" <then_body:Body> "else" <else_body:Body> ";" => Statement::Condition {
-        condition: Box::new(e),
-        then_branch: then_body,
-        else_branch: else_body,
-    },
-    "if" "(" <e:Expression> ")" <then_body:Body> ";" => Statement::Condition {
-        condition: Box::new(e),
-        then_branch: then_body,
-        else_branch: vec![],
-    }
-};
-
-// ---------------------------- Cycle
-pub Cycle: Statement = {
-  "while" "(" <e:Expression> ")" "do" <b:Body> ";" => Statement::Cycle {
-      condition: Box::new(e),
-      body: b,
+pub Func: ast::Func = {
+  <id:"id"> "(" <param:Params> ")" "[" <var:Vars> <body:Body> "]" => {
+    ast::Func { id, param, vars: Some(var), body }
+  },
+  <id:"id"> "(" ")" "[" <var:Vars> <body:Body> "]" => {
+    ast::Func { id, param: vec![], vars: Some(var), body }
+  },
+  <id:"id"> "(" ")" "[" <body:Body> "]" => {
+    ast::Func { id, param: vec![], vars: None, body }
+  },
+}
+ 
+pub Params: Vec<ast::Param> = {
+  <first:Param> <rest:Param*> => {
+    let mut params = vec![first];
+    params.extend(rest);  
+    params
   }
-};
+}
 
-// ---------------------------- F_Call
-// pub F_Call: Statement = {
-//     <id:Id> "(" <firstarg:Expression> <rest:("," <Expression>)*> ")" ";" => {
-//         let mut args = vec![firstarg];
-//         args.extend(rest.into_iter().map(|(_, expr)| expr));
-//         Statement::FCall { id, args }
-//     },
-//     <id:Id> "(" ")" ";" => Statement::FCall { id, args: vec![] }
-// };
-pub F_Call: Statement = {
-    //No argumentos
-    <id:Id> "(" ")" ";" => Statement::FCall { id, args: vec![] },
-    //uno o mas argumentos
-    <id:Id> "(" <first:Expression> <rest:("," <Expression>)*> ")" ";" => {
-        let mut args = vec![first];
-        args.extend(rest.into_iter().map(|(_, e)| e));
-        Statement::FCall { id, args }
+pub Param: ast::Param = {
+  <id:"id"> ":" <param_type:Term> => {
+    ast::Param { id, param_type }
+  }
+}
+
+//Vars
+pub Vars: Vec<ast::Vars> = {
+  "var" <vardecl:VarDecl*> => vardecl,
+}
+
+pub VarDecl: ast::Vars = {
+  <id:"id"*> ":" <var_type:Expression> ";" => {
+    ast::Vars { id, var_type  }
+  },
+}
+
+//Body
+pub Body: Vec<ast::Statement> = {
+  "{" <statement:Statement*> "}" => statement,
+}
+
+//Statement
+pub Statement: ast::Statement = {
+  //Assign
+  <id:"id"> "=" <value:Expression> ";" => {
+    ast::Statement::Assign(ast::Assign { 
+      id, 
+      value : Box::new(*value), 
+    })
+  },
+  //condition
+  "if" "(" <condition:Expression> ")" "do" <body:Statement> "else" "do" <else_body:Statement> => {
+      ast::Statement::Condition(ast::Condition {  
+          condition: Box::new(*condition),
+          body: Some(Box::new(body)),
+          elsebody: Some(Box::new(else_body)),
+      })
+  },
+  //cycle
+  "while" "(" <wcondition:Expression> ")" "do" <wbody:Body> ";" => {
+      ast::Statement::Cycle(ast::Cycle {  
+          wcondition: Box::new(*wcondition),
+          wbody: wbody,  // Debe ser Vec<Statement>
+      })
+  },
+  //F_call
+  <id:"id"> "(" ")" ";" => {
+    ast::Statement::FCall(ast::FCall {  
+        id,
+        expression: vec![], 
+    })
+  },
+  
+  <id:"id"> "(" <first_expression:Expression> <rest:FCallRest*> ")" ";" => {
+    let mut exprs = vec![first_expression];
+    for item in rest {
+      exprs.push(Box::new(item));
     }
-};
+    ast::Statement::FCall(ast::FCall {
+        id,
+        expression: exprs,  
+    })
+  },
 
-// ---------------------------- Print
-Print: Statement = {
-    "print" <val:Expression> ";" => Statement::Print {
-        value: Box::new(val),
-    },
-};
+  //print
+  "print" <value:Expression> ";" => {
+    ast::Statement::Print(ast::Print {  value: *value })
+  },
+}
 
-// -------------------------------------------------------------------------------------------------------------------
+pub FCallRest: ast::Expression = {  
+  "," <rest:Expression> => *rest,
+}
 
-// ---------------------------------------------------- Expression ---------------------------------------------------
-//Expression para operadores de comparacion
+//Expresion
+pub Expression: Box<ast::Expression> = {
+  #[precedence(level="1")]
+  Term,
 
-pub Expression: Expression = {
-    //nivel 0 elementos basicos, mayor precedencia sin asociatividad
-    #[precedence(level="0")]
-    "(" <e:Expression> ")" => e,
-    #[precedence(level="0")]
-    "-" <e:Cte> => Expression::Binary {
-        left: Box::new(Expression::Integer(0)),
-        operator: BinaryOperator::Sub,
-        right: Box::new(e),
-    },
-    #[precedence(level="0")]
-    "+" <e:Cte> => Expression::Binary {
-        left: Box::new(Expression::Integer(0)),
-        operator: BinaryOperator::Add,
-        right: Box::new(e),
-    },
-    #[precedence(level="0")]
-    "-" <e:CteFloat> => Expression::Binary {
-        left: Box::new(Expression::Float(0.0)),
-        operator: BinaryOperator::Sub,
-        right: Box::new(e),
-    },
-    #[precedence(level="0")]
-    "+" <e:CteFloat> => Expression::Binary {
-        left: Box::new(Expression::Float(0.0)),
-        operator: BinaryOperator::Add,
-        right: Box::new(e),
-    },
-    #[precedence(level="0")]
-    <e:Id> => Expression::Variable(e),
-    #[precedence(level="0")]
-    <e:Cte> => e,
-    #[precedence(level="0")]
-    <e:CteFloat> => e,
+  #[precedence(level="2")] #[assoc(side="left")]
+  <lhs:Expression> "*" <rhs:Expression> => {
+    Box::new(ast::Expression::BinaryOperation {
+      lhs,
+      operator: ast::Operator::Mul,
+      rhs
+    })
+  },
+  <lhs:Expression> "/" <rhs:Expression> => {
+    Box::new(ast::Expression::BinaryOperation {
+      lhs,
+      operator: ast::Operator::Div,
+      rhs
+    })
+  },
 
-    //nivel 1 multiplicacion y division, alta precedencia
-    #[precedence(level="1")] #[assoc(side="left")]
-    <left:Expression> "*" <right:Expression> => Expression::Binary {
-        left: Box::new(left),
-        operator: BinaryOperator::Mul,
-        right: Box::new(right),
-    },
-    #[precedence(level="1")] #[assoc(side="left")]
-    <left:Expression> "/" <right:Expression> => Expression::Binary {
-        left: Box::new(left),
-        operator: BinaryOperator::Div,
-        right: Box::new(right),
-    },
+  #[precedence(level="3")] #[assoc(side="left")]
+  <lhs:Expression> "+" <rhs:Expression> => {
+    Box::new(ast::Expression::BinaryOperation {
+      lhs,
+      operator: ast::Operator::Add,
+      rhs
+    })
+  },
+  <lhs:Expression> "-" <rhs:Expression> => {
+    Box::new(ast::Expression::BinaryOperation {
+      lhs,
+      operator: ast::Operator::Sub,
+      rhs
+    })
+  },
+    #[precedence(level="4")] #[assoc(side="left")]
+  <lhs:Expression> "<" <rhs:Expression> => {
+    Box::new(ast::Expression::BinaryOperation {
+      lhs,
+      operator: ast::Operator::GreaterThan,
+      rhs
+    })
+  },
+  <lhs:Expression> ">" <rhs:Expression> => {
+    Box::new(ast::Expression::BinaryOperation {
+      lhs,
+      operator: ast::Operator::LessThan,
+      rhs
+    })
+  },
+}
 
-    //nivel 2 suma y resta precedencia media
-    #[precedence(level="2")] #[assoc(side="left")]
-    <left:Expression> "+" <right:Expression> => Expression::Binary {
-        left: Box::new(left),
-        operator: BinaryOperator::Add,
-        right: Box::new(right),
-    },
-    #[precedence(level="2")] #[assoc(side="left")]
-    <left:Expression> "-" <right:Expression> => Expression::Binary {
-        left: Box::new(left),
-        operator: BinaryOperator::Sub,
-        right: Box::new(right),
-    },
-
-    //nivel 3 comparaciones menor precedencia
-    #[precedence(level="3")] #[assoc(side="left")]
-    <left:Expression> ">" <right:Expression> => Expression::Binary {
-        left: Box::new(left),
-        operator: BinaryOperator::GreaterThan,
-        right: Box::new(right),
-    },
-    #[precedence(level="3")] #[assoc(side="left")]
-    <left:Expression> "<" <right:Expression> => Expression::Binary {
-        left: Box::new(left),
-        operator: BinaryOperator::LessThan,
-        right: Box::new(right),
-    },
-    #[precedence(level="3")] #[assoc(side="left")]
-    <left:Expression> "!=" <right:Expression> => Expression::Binary {
-        left: Box::new(left),
-        operator: BinaryOperator::NotEqual,
-        right: Box::new(right),
-    },
-};
+pub Term: Box<ast::Expression> = {
+  <val:"int"> => {
+    Box::new(ast::Expression::Integer(val))
+  },
+  <val:"float"> => {
+    Box::new(ast::Expression::Float(val))
+  },
+  <name:"id"> => {
+    Box::new(ast::Expression::Variable(name))
+  },
+  "(" <e:Expression> ")" => e
+}

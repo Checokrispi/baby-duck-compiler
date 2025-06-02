@@ -1,102 +1,89 @@
-//--------------------------------- AST para program -------------------------------------------------------
+// Program
 #[derive(Clone, Debug, PartialEq)]
 pub struct Program {
     pub id: String,
-    pub vars: Vec<(String, String)>, 
+    pub vars: Option<Vec<Vars>>, 
+    pub funcs: Option<Vec<Func>>,
     pub body: Vec<Statement>,
-    pub funcs: Vec<Function>,
 }
 
-//--------------------------------- AST para function -------------------------------------------------------
-//representa un tipo de dato (int, float, etc.)
-#[derive(Debug)]
-enum Type {
-    Int,
-    Float,
-}
-
-//parámetro: id : tipo
-#[derive(Debug)]
-struct Param {
-    name: String,
-    param_type: Type,
-}
-
-//lista de parámetros
-type ParamList = Vec<Param>;
-
-//variable 
-#[derive(Debug)]
-struct VarDecl {
-    name: Vec<String>,
-    var_type: Type,
-}
-
-//lista de variables
-type VarList = Vec<VarDecl>;
-
-//cuerpo de la función (puede ser una lista de sentencias, aquí solo un placeholder)
-#[derive(Debug)]
-struct Body {
-    //puedes definir aquí statements, instrucciones, etc.
-    content: Vec<Statement>,
-}
-
-// Función
-#[derive(Debug)]
-struct Func {
-    name: String,           // id
-    params: ParamList,      // <ID_LOOP>
-    vars: Option<VarList>,  // <VARS_DES>, puede ser None
-    body: Body,             // <Body>
-}
-//-------------------------------------------------------------------------------------------------------------
-
-//-------------------------------------------------- AST para statement ---------------------------------------
+// Vars 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Statement {
-    Variable {
-        id: String,
-        value: Box<Expression>,
-    },
-    Print {
-        value: Box<Expression>,
-    },
-    Condition {
-        condition: Box<Expression>,
-        then_branch: Vec<Statement>,
-        else_branch: Vec<Statement>, 
-    },
-    Cycle {
-        condition: Box<Expression>,
-        body: Vec<Statement>,
-    },
-    FCall {
-        id: String,
-        args: Vec<Expression>, 
-    },
+pub struct Vars {
+    pub id: Vec<String>,
+    pub var_type: Box<Expression>,
 }
 
-//------------------------------------------------ AST para Expression -------------------------------------------
-#[derive(Debug, Clone, PartialEq)]
+// Function
+#[derive(Clone, Debug, PartialEq)]
+pub struct Func {
+    pub id: String,
+    pub param: Vec<Param>,
+    pub vars: Option<Vec<Vars>>,
+    pub body: Vec<Statement>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Param {
+    pub id: String,
+    pub param_type: Box<Expression>,
+}
+
+// Expression 
+#[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
     Integer(i64),
     Float(f64),
-    Variable(String)
-    Binary {
-        left: Box<Expression>,
-        operator: BinaryOperator,
-        right: Box<Expression>,
+    Variable(String),
+    BinaryOperation {
+        lhs: Box<Expression>,
+        operator: Operator,
+        rhs: Box<Expression>,
     },
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum BinaryOperator {
+#[derive(Clone, Debug, PartialEq)]
+pub enum Operator {
     Add,
     Sub,
     Mul,
     Div,
     GreaterThan,
     LessThan,
-    NotEqual,
+}
+
+// Statement
+#[derive(Clone, Debug, PartialEq)]
+pub enum Statement {
+    Assign(Assign),
+    Condition(Condition),
+    Cycle(Cycle),
+    FCall(FCall),
+    Print(Print),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Assign {
+    pub id: String,
+    pub value: Box<Expression>,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct Condition {
+    pub condition: Box<Expression>,
+    pub body: Option<Box<Statement>>,
+    pub elsebody: Option<Box<Statement>>,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct Cycle {
+    pub wcondition: Box<Expression>,
+    pub wbody: Vec<Statement>
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct FCall {
+    pub id: String,
+    pub expression: Vec<Box<Expression>>,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct Print {
+    pub value: Expression,
 }

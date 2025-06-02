@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [build-dependencies]
-lalrpop = "0.20"
+lalrpop = "0.22.2"
 
 [dependencies]
-lalrpop-util = { version = "0.22.1", features = ["unicode",] }
+lalrpop-util = { version = "0.22.2", features = ["unicode"] }
+lexer = "0.1.18"
 logos = "0.15.0"

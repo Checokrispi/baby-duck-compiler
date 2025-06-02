@@ -18,12 +18,12 @@ impl<'input> Lexer<'input> {
     }
 }
 
-impl Iterator for Lexer<'_> {
-    type Item = Spanned<Token, usize, LexicalError>;
+impl<'input> Iterator for Lexer<'input> {
+  type Item = Spanned<Token, usize, LexicalError>;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.token_stream
-            .next()
-            .map(|(token, span)| Ok((span.start, token?, span.end)))
-    }
+  fn next(&mut self) -> Option<Self::Item> {
+    self.token_stream
+      .next()
+      .map(|(token, span)| Ok((span.start, token?, span.end)))
+  }
 }
