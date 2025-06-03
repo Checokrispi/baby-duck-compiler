@@ -8,6 +8,7 @@ extern {
   type Location = usize;
   type Error = LexicalError;
 
+  //Tokens referenciados desde el archivo token.rs
   enum Token {
     "program" => Token::KeywordProgram,
     "main" => Token::KeywordMain,
@@ -45,7 +46,7 @@ extern {
   }
 }
 
-//Program
+//Regla de inicio Program
 pub Program: ast::Program = {
   "program" <id:"id"> ";" <var:Vars> <func:Funcs> "main" <body:Body> "end" => {
       ast::Program { id, vars: Some(var), funcs: Some(func), body }
@@ -61,7 +62,7 @@ pub Program: ast::Program = {
   },
 }
 
-//Func
+//Regla para funciones
 pub Funcs: Vec<ast::Func> = {
   "void" <func:Func*> => func,
 }
@@ -77,15 +78,17 @@ pub Func: ast::Func = {
     ast::Func { id, param: vec![], vars: None, body }
   },
 }
- 
+
+//Parametros para las funciones, es parte de la regla para funciones los cuales pueden ser mas de 1
+//Regresa un vector 
 pub Params: Vec<ast::Param> = {
-  <first:Param> <rest:Param*> => {
+  <first:Param> <rest:Param*> => { //Param* indica que el valor rest de tipo Param puede ser 0 o muchos
     let mut params = vec![first];
     params.extend(rest);  
     params
   }
 }
-
+//
 pub Param: ast::Param = {
   <id:"id"> ":" <param_type:Term> => {
     ast::Param { id, param_type }

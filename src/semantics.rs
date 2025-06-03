@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use crate::ast::Expression;
 use crate::ast::Operator;
 use crate::ast::Program;
- use crate::ast::Statement;
+use crate::ast::Statement;
 
 #[derive(Hash, Eq, PartialEq, Debug)]
 pub enum OperatorType {
@@ -199,11 +199,11 @@ impl SemanticCube {
 
                 let result_type = cube.get_result_type(op_type, left_type.clone(), right_type.clone());
                 if result_type == ExpressionType::Error {
-                    println!(
+                    eprintln!(
                         "Semantic Error, invalid operation"
                     );
                 } else {
-                    println!(
+                    eprintln!(
                         "Valid Semantic"
                     );
                 }
@@ -212,7 +212,4 @@ impl SemanticCube {
             }
         }
     }
-
-
-
 }
